@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -16,16 +17,17 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+// Tag : v0.0.1 - PrintError 함수 추가됨
+
 type Error struct {
 	StatusCode  int    `json:"status_code"`
 	Error       string `json:"error"`
 	Description string `json:"description"`
 }
 
-func FailOnError(err error, msg string) {
-	if err != nil {
-		log.Printf("%s : %s\n", msg, err)
-	}
+func PrintError(err error, msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	log.Printf("%s : %v at %s:%d", msg, err, file, line)
 }
 
 func SendMessage(ch *amqp.Channel, tag string, message map[string]interface{}, rk string) error {
