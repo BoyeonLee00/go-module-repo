@@ -17,7 +17,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Tag : v0.0.1 - PrintError 함수 추가됨
+// Tag : v0.0.1 - FailOnError 삭제 후 PrintError 추가됨
 
 type Error struct {
 	StatusCode  int    `json:"status_code"`
@@ -27,7 +27,7 @@ type Error struct {
 
 func PrintError(err error, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	log.Printf("%s : %v at %s:%d", msg, err, file, line)
+	log.Printf("%s : %v at %s:%d\n", msg, err, file, line)
 }
 
 func SendMessage(ch *amqp.Channel, tag string, message map[string]interface{}, rk string) error {
