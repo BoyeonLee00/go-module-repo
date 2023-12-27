@@ -269,7 +269,7 @@ func Produce(message map[string]interface{}, topic string, key string) error {
 	}
 }
 
-func ProduceError(errorMessage con.Error, topic string, key string) error {
+func ProduceError(errorMessage Error, topic string, key string) error {
 	kafkaServer := os.Getenv("KAFKA_SERVER")
 	p, err := KafkaProducer(kafkaServer)
 	if err != nil {
