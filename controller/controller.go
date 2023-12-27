@@ -316,10 +316,10 @@ func ProduceError(errorMessage Error, topic string, key string) error {
 	}
 }
 
-func KafkaConsumer(kafkaServer string) (*kafka.Consumer, error) {
+func KafkaConsumer(kafkaServer string, groupID string) (*kafka.Consumer, error) {
 	c, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": kafkaServer,
-		"group.id":          "myGroup",
+		"group.id":          groupID,
 		"auto.offset.reset": "earliest",
 	})
 
