@@ -15,9 +15,12 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/pkg/errors"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"gopkg.in/confluentinc/confluent-kafka-go.v1/kafka"
 )
 
-// Tag : v0.0.1 - FailOnError 삭제 후 PrintError 추가됨
+// Tag
+// v0.0.1 - FailOnError 삭제 후 PrintError 추가됨
+// v0.0.2 - kafka 함수 추가됨
 
 type Error struct {
 	StatusCode  int    `json:"status_code"`
@@ -208,4 +211,121 @@ func HolderSendHTTPRequest(walletToken string, method string, url string, data m
 	}
 
 	return result, nil
+}
+
+func KafkaProducer(kafkaServer string) (*kafka.Producer, error) {
+	p, err := kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": kafkaServer})
+	if err != nil {
+		return nil, errors.Wrap(err, "[KafkaProducer] NewProducer error")
+	}
+
+	return p, nil
+}
+
+func Produce(message map[string]interface{}, topic string, key string) error {
+	kafkaServer := os.Getenv("KAFKA_SERVER")
+	p, err := KafkaProducer(kafkaServer)
+	if err != nil {
+		return errors.Wrap(err, "[Produce] kafkaConfig error")
+	}
+	defer p.Close()
+
+	bytemessage, err := json.Marshal(message)
+	if err != nil {
+		return errors.Wrap(err, "[Produce] Fail to marshal JSON")
+	}
+
+	errCh := make(chan error)
+	go func() {
+		for e := range p.Events() {
+			switch ev := e.(type) {
+			case *kafka.Message:
+				if ev.TopicPartition.Error != nil {
+					errCh <- errors.Wrap(ev.TopicPartition.Error, "[Produce] Fail to deliver message")
+					return
+				}
+			}
+		}
+	}()
+
+	kafkaMessage := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		Key:            []byte(key),
+		Value:          bytemessage,
+	}
+
+	err = p.Produce(kafkaMessage, nil)
+	if err != nil {
+		return errors.Wrap(err, "[Produce] Fail to produce message")
+	}
+
+	p.Flush(5000)
+
+	select {
+	case produceErr := <-errCh:
+		return produceErr
+	default:
+		return nil
+	}
+}
+
+func ProduceError(errorMessage con.Error, topic string, key string) error {
+	kafkaServer := os.Getenv("KAFKA_SERVER")
+	p, err := KafkaProducer(kafkaServer)
+	if err != nil {
+		return errors.Wrap(err, "[ProduceError] kafkaConfig error")
+	}
+	defer p.Close()
+
+	bytemessage, err := json.Marshal(errorMessage)
+	if err != nil {
+		return errors.Wrap(err, "[ProduceError] Fail to marshal JSON")
+	}
+
+	errCh := make(chan error)
+	go func() {
+		for e := range p.Events() {
+			switch ev := e.(type) {
+			case *kafka.Message:
+				if ev.TopicPartition.Error != nil {
+					errCh <- errors.Wrap(ev.TopicPartition.Error, "[ProduceError] Fail to deliver message")
+					return
+				}
+			}
+		}
+	}()
+
+	kafkaMessage := &kafka.Message{
+		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
+		Key:            []byte(key),
+		Value:          bytemessage,
+	}
+
+	err = p.Produce(kafkaMessage, nil)
+	if err != nil {
+		return errors.Wrap(err, "[ProduceError] Fail to produce message")
+	}
+
+	p.Flush(5000)
+
+	select {
+	case produceErr := <-errCh:
+		return produceErr
+	default:
+		return nil
+	}
+}
+
+func KafkaConsumer(kafkaServer string) (*kafka.Consumer, error) {
+	c, err := kafka.NewConsumer(&kafka.ConfigMap{
+		"bootstrap.servers": kafkaServer,
+		"group.id":          "myGroup",
+		"auto.offset.reset": "earliest",
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "[KafkaConsumer] NewConsumer error")
+	}
+
+	return c, nil
 }
