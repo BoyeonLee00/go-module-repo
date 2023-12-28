@@ -222,7 +222,7 @@ func KafkaProducer(kafkaServer string) (*kafka.Producer, error) {
 	return p, nil
 }
 
-func Produce(message map[string]interface{}, topic string, key string) error {
+func Produce(message map[string]interface{}, topic string, tag string) error {
 	kafkaServer := os.Getenv("KAFKA_SERVER")
 	p, err := KafkaProducer(kafkaServer)
 	if err != nil {
@@ -250,8 +250,10 @@ func Produce(message map[string]interface{}, topic string, key string) error {
 
 	kafkaMessage := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
-		Key:            []byte(key),
 		Value:          bytemessage,
+		Headers: []kafka.Header{
+			{Key: "tag", Value: []byte(tag)},
+		},
 	}
 
 	err = p.Produce(kafkaMessage, nil)
@@ -269,7 +271,7 @@ func Produce(message map[string]interface{}, topic string, key string) error {
 	}
 }
 
-func ProduceError(errorMessage Error, topic string, key string) error {
+func ProduceError(errorMessage Error, topic string) error {
 	kafkaServer := os.Getenv("KAFKA_SERVER")
 	p, err := KafkaProducer(kafkaServer)
 	if err != nil {
@@ -297,7 +299,6 @@ func ProduceError(errorMessage Error, topic string, key string) error {
 
 	kafkaMessage := &kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny},
-		Key:            []byte(key),
 		Value:          bytemessage,
 	}
 
